@@ -89,6 +89,8 @@ input[type=text]{width:100%;font:inherit;font-size:14px;color:var(--ink);backgro
         <div class="seg" id="gtype" data-key="gtype" style="margin-bottom:10px"></div>
         <div class="row" style="grid-template-columns:44px 1fr 44px"><span>간격</span><input id="gdelay" type="range" min="2" max="30" value="10"><output>1.0초</output></div>
         <div class="seg" id="gsize" data-key="gsize" style="margin-bottom:10px"></div>
+        <p class="note" style="margin:0 0 6px">한 장씩 넘길 때 사진 맞춤</p>
+        <div class="seg" id="gfit" data-key="gfit" style="margin-bottom:10px"></div>
         <label style="font-size:13px;display:block;margin-bottom:10px"><input type="checkbox" id="gfinal" checked> 마지막에 완성 콜라주 보여주기</label>
         <button class="pri" id="gifBtn" disabled>GIF 저장</button>
         <div id="msg2" class="note" role="status"></div>
@@ -98,7 +100,7 @@ input[type=text]{width:100%;font:inherit;font-size:14px;color:var(--ink);backgro
         <div class="seg" id="fmt" data-key="fmt" style="margin-bottom:10px"></div>
         <button class="pri" id="save">이미지 저장</button>
         <div id="msg" role="status"></div>
-        <div id="fallback"><p class="note">다운로드가 안 되면(모바일 등) 아래 이미지를 길게 눌러 저장해 주세요.</p><img id="outimg" alt="완성된 콜라주"></div>
+        <div id="fallback"><button class="pri" id="doSave">저장하기</button><p class="note">저장 창이 안 뜨면 아래 이미지를 길게 눌러 저장해 주세요. 카카오톡·인스타그램 같은 앱 안의 브라우저에서는 막힐 수 있어서, 크롬이나 사파리로 열어 주세요.</p><img id="outimg" alt="완성된 콜라주"></div>
       </div>
     </div>
   </div>
@@ -139,7 +141,10 @@ function draw(c,W,H,showSel,o){
   if(!n){c.fillStyle=ink;c.globalAlpha=.4;c.textAlign='center';c.textBaseline='middle';
     c.font="500 "+(48*s)+"px 'IBM Plex Sans KR',sans-serif";c.fillText('사진을 추가해 주세요',W/2,H/2);c.globalAlpha=1;return}
   const lim=o&&o.reveal!=null?o.reveal:cells.length;
-  cells.forEach((r,i)=>{if(i>=lim)return;const p=one?st.photos[o.only]:st.photos[i],{dw,dh}=cover(p,r);
+  cells.forEach((r0,i)=>{if(i>=lim)return;let p=one?st.photos[o.only]:st.photos[i],r=r0;
+    if(one&&st.gfit==='contain'){const k=Math.min(r0.w/p.w,r0.h/p.h),w=p.w*k,h=p.h*k;
+      r={x:r0.x+(r0.w-w)/2,y:r0.y+(r0.h-h)/2,w,h};p={img:p.img,w:p.w,h:p.h,z:1,ox:0,oy:0}}
+    const{dw,dh}=cover(p,r);
     c.save();c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,rad);c.clip();
     c.drawImage(p.img,r.x+(r.w-dw)/2+p.ox*(dw-r.w)/2,r.y+(r.h-dh)/2+p.oy*(dh-r.h)/2,dw,dh);c.restore()});
   if(hasCap){
@@ -212,9 +217,21 @@ cv.addEventListener('wheel',e=>{
 },{passive:false});
 
 /* 저장 */
-let lastUrl=null;
-function saveBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();return u}
-function showPreview(u){if(lastUrl)URL.revokeObjectURL(lastUrl);lastUrl=u;$('outimg').src=u;$('fallback').style.display='block'}
+let lastUrl=null,cur=null;
+const coarse=()=>matchMedia('(pointer:coarse)').matches;
+function saveBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
+function showResult(blob,name){
+  if(lastUrl)URL.revokeObjectURL(lastUrl);lastUrl=URL.createObjectURL(blob);cur={blob,name};
+  $('outimg').src=lastUrl;$('fallback').style.display='block';$('fallback').scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(!coarse())saveBlob(blob,name);
+}
+$('doSave').onclick=async()=>{
+  if(!cur)return;
+  const f=new File([cur.blob],cur.name,{type:cur.blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){
+    try{await navigator.share({files:[f]});return}catch(e){if(e&&e.name==='AbortError')return}}
+  saveBlob(cur.blob,cur.name);
+};
 $('save').onclick=async()=>{
   const msg=$('msg');msg.textContent='이미지를 만드는 중…';$('fallback').style.display='none';
   try{await document.fonts.load("700 20px 'IBM Plex Sans KR'")}catch(e){}
@@ -222,7 +239,7 @@ $('save').onclick=async()=>{
   draw(out.getContext('2d'),out.width,out.height,false);
   const png=st.fmt==='png',mime=png?'image/png':'image/jpeg';
   const blob=await new Promise(r=>out.toBlob(r,mime,.95));
-  const u=saveBlob(blob,'collage.'+(png?'png':'jpg'));showPreview(u);msg.textContent='저장했어요!';
+  showResult(blob,'collage.'+(png?'png':'jpg'));msg.textContent=coarse()?'완성! 아래 버튼으로 저장하세요.':'저장했어요!';
 };
 
 
@@ -282,9 +299,10 @@ function gifEncode(frames,W,H){
   }
   put(0x3b);return a.slice(0,n);
 }
-st.gtype='slide';st.gsize='640';st.gdelay=1;st.gfinal=true;
+st.gtype='slide';st.gsize='640';st.gfit='contain';st.gdelay=1;st.gfinal=true;
 seg('gtype',[['slide','한 장씩 넘기기'],['build','차례로 채우기']]);
 seg('gsize',[['480','작게'],['640','보통'],['800','크게']]);
+seg('gfit',[['contain','전체 보이게'],['cover','꽉 채우기']]);
 $('gdelay').oninput=e=>{st.gdelay=e.target.value/10;e.target.nextElementSibling.textContent=st.gdelay.toFixed(1)+'초'};
 $('gfinal').onchange=e=>{st.gfinal=e.target.checked};
 $('gifBtn').onclick=async()=>{
@@ -305,7 +323,7 @@ $('gifBtn').onclick=async()=>{
     msg.textContent='GIF로 합치는 중…';await new Promise(r=>setTimeout(r,20));
     const blob=new Blob([gifEncode(frames,W,H)],{type:'image/gif'}),mb=blob.size/1048576;
     const warn=mb>15?' (15MB를 넘어요. 크기를 줄여 보세요)':'';
-    const u=saveBlob(blob,'collage.gif');showPreview(u);msg.textContent='저장했어요! '+mb.toFixed(1)+'MB'+warn;
+    showResult(blob,'collage.gif');msg.textContent=(coarse()?'완성! 아래 버튼으로 저장하세요. ':'저장했어요! ')+mb.toFixed(1)+'MB'+warn;
   }catch(e){msg.textContent='GIF를 만들지 못했어요. 크기를 줄여 다시 시도해 주세요.'}
   btn.disabled=st.photos.length<2;
 };
