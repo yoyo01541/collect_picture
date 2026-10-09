@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>트윗용 콜라주 메이커</title>
+<meta name="description" content="사진 여러 장을 트위터용 콜라주 이미지나 GIF로 만들어 주는 무료 웹 도구. 사진은 내 기기 안에서만 처리돼요.">
+<meta property="og:title" content="트윗용 콜라주 메이커">
+<meta property="og:description" content="비율, 배치, 캡션을 고르고 JPG·PNG·GIF로 저장해요.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🖼️%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f6f8;--ink:#14161c;--mut:#6b7080;--line:rgba(20,22,28,.14);--card:#fff;--stage:#e6e7ec;--ac:#e03a6e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--ink:#eef0f5;--mut:#9aa0b0;--line:rgba(255,255,255,.16);--card:#171a21;--stage:#1d2028}}
+:root[data-theme="dark"]{--bg:#0f1115;--ink:#eef0f5;--mut:#9aa0b0;--line:rgba(255,255,255,.16);--card:#171a21;--stage:#1d2028}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:22px;margin:0 0 2px}
+.sub{color:var(--mut);font-size:14px;margin:0 0 18px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
+@media (max-width:860px){.app{grid-template-columns:1fr}}
+.stage{background:var(--stage);border-radius:20px;padding:20px;display:grid;place-items:center;position:sticky;top:12px}
+@media (max-width:860px){.stage{position:static;padding:12px}}
+#cv{max-width:100%;max-height:72vh;box-shadow:0 10px 36px rgba(0,0,0,.22);border-radius:3px;cursor:grab;touch-action:none;background:#fff}
+#cv:active{cursor:grabbing}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 18px}
+.sec{padding:16px 0;border-top:1px solid var(--line)}
+.sec:first-child{border-top:0}
+h2{font-size:14px;margin:0 0 10px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+button,.btn{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:9px;padding:7px 12px;cursor:pointer}
+button:hover:not(:disabled),.btn:hover{background:var(--line)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible,.btn:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pri{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:500;padding:10px 16px;width:100%;font-size:15px}
+.pri:hover:not(:disabled){background:var(--ac);opacity:.9}
+.btn.pri{display:block;text-align:center;width:auto}
+input[type=file]{display:none}
+.row{display:grid;grid-template-columns:44px 1fr 30px;gap:8px;align-items:center;font-size:13px;margin-bottom:6px}
+.row output{text-align:right;color:var(--mut)}
+input[type=range]{width:100%;accent-color:var(--ac)}
+input[type=text]{width:100%;font:inherit;font-size:14px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:8px}
+.sw{width:30px;height:30px;padding:0;border-radius:50%;border:1px solid var(--line)}
+.sw[aria-pressed="true"]{outline:2px solid var(--ac);outline-offset:2px;border-color:var(--line)}
+.sws{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sws input[type=color]{width:30px;height:30px;padding:0;border:1px solid var(--line);border-radius:50%;background:none}
+.note{font-size:12px;color:var(--mut);margin:8px 0 0}
+#msg{font-size:13px;color:var(--mut);margin-top:8px;min-height:20px}
+#fallback{display:none;margin-top:10px}
+#fallback img{width:100%;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>트윗용 콜라주 메이커</h1>
+  <p class="sub">사진을 올리고 비율과 배치를 고르면, 트위터에 바로 올릴 한 장이 만들어져요.</p>
+  <div class="app">
+    <div class="stage" id="stage"><canvas id="cv" aria-label="콜라주 미리보기"></canvas></div>
+    <div class="panel">
+      <div class="sec">
+        <h2>사진 <span id="cnt" style="font-weight:400;color:var(--mut)"></span></h2>
+        <label class="btn pri" for="file" id="addBtn" tabindex="0">사진 추가 (최대 9장)</label>
+        <input id="file" type="file" accept="image/*" multiple>
+      </div>
+      <div class="sec"><h2>비율</h2><div class="seg" id="ratio" data-key="ratio"></div>
+        <p class="note">헤더는 프로필 상단 배너 비율이에요.</p></div>
+      <div class="sec"><h2>배치</h2><div class="seg" id="layout" data-key="layout"></div></div>
+      <div class="sec"><h2>간격과 모서리</h2>
+        <div class="row"><span>간격</span><input id="gap" type="range" min="0" max="40"><output></output></div>
+        <div class="row"><span>둥글기</span><input id="rad" type="range" min="0" max="60"><output></output></div>
+        <div class="row"><span>바깥 여백</span><input id="mar" type="range" min="0" max="80"><output></output></div>
+      </div>
+      <div class="sec"><h2>배경색</h2><div class="sws" id="sws"></div></div>
+      <div class="sec"><h2>캡션</h2>
+        <label style="font-size:13px;display:block;margin-bottom:8px"><input type="checkbox" id="foot" checked> 아래에 캡션 넣기</label>
+        <input type="text" id="title" placeholder="캐릭터 / 작품명" aria-label="제목">
+        <input type="text" id="credit" placeholder="Cos @아이디 · Photo @아이디" aria-label="크레딧">
+      </div>
+      <div class="sec"><h2>선택한 사진</h2>
+        <p class="note" style="margin:0 0 10px">미리보기에서 사진을 눌러 선택하고, 끌어서 위치를, 휠이나 슬라이더로 크기를 조절해요.</p>
+        <div class="row"><span>확대</span><input id="zoom" type="range" min="100" max="400" value="100"><output></output></div>
+        <div class="seg"><button id="prev">◀ 앞으로</button><button id="next">뒤로 ▶</button><button id="del">빼기</button></div>
+      </div>
+      <div class="sec"><h2>움짤 (GIF)</h2>
+        <div class="seg" id="gtype" data-key="gtype" style="margin-bottom:10px"></div>
+        <div class="row" style="grid-template-columns:44px 1fr 44px"><span>간격</span><input id="gdelay" type="range" min="2" max="30" value="10"><output>1.0초</output></div>
+        <div class="seg" id="gsize" data-key="gsize" style="margin-bottom:10px"></div>
+        <label style="font-size:13px;display:block;margin-bottom:10px"><input type="checkbox" id="gfinal" checked> 마지막에 완성 콜라주 보여주기</label>
+        <button class="pri" id="gifBtn" disabled>GIF 저장</button>
+        <div id="msg2" class="note" role="status"></div>
+        <p class="note">사진이 2장 이상일 때 만들 수 있어요. 트위터 GIF는 15MB까지 올릴 수 있어요.</p>
+      </div>
+      <div class="sec"><h2>저장</h2>
+        <div class="seg" id="fmt" data-key="fmt" style="margin-bottom:10px"></div>
+        <button class="pri" id="save">이미지 저장</button>
+        <div id="msg" role="status"></div>
+        <div id="fallback"><p class="note">다운로드가 안 되면(모바일 등) 아래 이미지를 길게 눌러 저장해 주세요.</p><img id="outimg" alt="완성된 콜라주"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id),cv=$('cv'),ctx=cv.getContext('2d');
+const RAT={'16:9':[2400,1350],'1:1':[2048,2048],'4:5':[1920,2400],'3:1':[3000,1000]};
+const BG=['#ffffff','#14161c','#ffd9e6','#d6ebff','#dff5dc','#e6ddff','#fff1b8'];
+const st={ratio:'16:9',layout:'grid',fmt:'jpg',gap:14,rad:14,mar:28,bg:'#ffffff',foot:true,title:'',credit:'',photos:[],cells:[],sel:-1};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lum=h=>{const n=parseInt(h.slice(1),16);return(.299*(n>>16&255)+.587*(n>>8&255)+.114*(n&255))/255};
+
+function rects(n,A,g,type){
+  const out=[];
+  const rows=(counts,x0,y0,w,h)=>{const rh=(h-(counts.length-1)*g)/counts.length;
+    counts.forEach((k,r)=>{const cw=(w-(k-1)*g)/k;for(let j=0;j<k;j++)out.push({x:x0+j*(cw+g),y:y0+r*(rh+g),w:cw,h:rh})})};
+  if(type==='row')rows([n],A.x,A.y,A.w,A.h);
+  else if(type==='col')rows(Array(n).fill(1),A.x,A.y,A.w,A.h);
+  else if(type==='hero'&&n>1){
+    if(A.w>=A.h){const hw=(A.w-g)*.62;out.push({x:A.x,y:A.y,w:hw,h:A.h});rows(Array(n-1).fill(1),A.x+hw+g,A.y,A.w-hw-g,A.h)}
+    else{const hh=(A.h-g)*.62;out.push({x:A.x,y:A.y,w:A.w,h:hh});rows([n-1],A.x,A.y+hh+g,A.w,A.h-hh-g)}
+  }else{
+    const cols=clamp(Math.round(Math.sqrt(n*A.w/A.h)),1,n),rs=Math.ceil(n/cols),cs=[];
+    for(let r=0;r<rs;r++)cs.push(r<rs-1?cols:n-cols*(rs-1));
+    rows(cs,A.x,A.y,A.w,A.h)}
+  return out;
+}
+function cover(p,r){const sc=Math.max(r.w/p.w,r.h/p.h)*p.z;return{dw:p.w*sc,dh:p.h*sc}}
+function draw(c,W,H,showSel,o){
+  const s=Math.min(W,H)/1000,gap=st.gap*s,rad=st.rad*s,m=st.mar*s;
+  const ink=lum(st.bg)<.5?'#ffffff':'#14161c';
+  c.fillStyle=st.bg;c.fillRect(0,0,W,H);
+  const hasCap=st.foot&&(st.title||st.credit),fh=hasCap?Math.round(Math.min(W,H)*.1):0;
+  const A={x:m,y:m,w:W-2*m,h:Math.max(50,H-2*m-fh)},n=st.photos.length,one=o&&o.only!=null;
+  const cells=!n?[]:one?[A]:rects(n,A,gap,st.layout);
+  if(!o)st.cells=cells;
+  if(!n){c.fillStyle=ink;c.globalAlpha=.4;c.textAlign='center';c.textBaseline='middle';
+    c.font="500 "+(48*s)+"px 'IBM Plex Sans KR',sans-serif";c.fillText('사진을 추가해 주세요',W/2,H/2);c.globalAlpha=1;return}
+  const lim=o&&o.reveal!=null?o.reveal:cells.length;
+  cells.forEach((r,i)=>{if(i>=lim)return;const p=one?st.photos[o.only]:st.photos[i],{dw,dh}=cover(p,r);
+    c.save();c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,rad);c.clip();
+    c.drawImage(p.img,r.x+(r.w-dw)/2+p.ox*(dw-r.w)/2,r.y+(r.h-dh)/2+p.oy*(dh-r.h)/2,dw,dh);c.restore()});
+  if(hasCap){
+    const y=H-m-fh/2,px=Math.max(m,28*s);c.textBaseline='middle';c.fillStyle=ink;
+    c.textAlign='left';c.font="700 "+(fh*.4)+"px 'IBM Plex Sans KR',sans-serif";c.fillText(st.title,px,y,W*.6);
+    c.globalAlpha=.7;c.textAlign='right';c.font="400 "+(fh*.28)+"px 'IBM Plex Sans KR',sans-serif";c.fillText(st.credit,W-px,y,W*.38);c.globalAlpha=1}
+  if(showSel&&st.sel>=0&&st.cells[st.sel]){const r=st.cells[st.sel];
+    c.strokeStyle='#e03a6e';c.lineWidth=6*s;c.beginPath();c.roundRect(r.x+3*s,r.y+3*s,r.w-6*s,r.h-6*s,rad);c.stroke()}
+}
+const render=()=>draw(ctx,cv.width,cv.height,true);
+function setRatio(){const [w,h]=RAT[st.ratio];cv.width=w;cv.height=h}
+function sync(){
+  document.querySelectorAll('[data-key]').forEach(el=>[...el.children].forEach(b=>b.setAttribute('aria-pressed',st[el.dataset.key]===b.dataset.v)));
+  [...$('sws').querySelectorAll('.sw')].forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===st.bg));
+  const p=st.photos[st.sel],has=!!p;
+  $('zoom').disabled=!has;$('del').disabled=!has;$('prev').disabled=!has||st.sel<1;$('next').disabled=!has||st.sel>=st.photos.length-1;
+  if(has){$('zoom').value=Math.round(p.z*100);$('zoom').nextElementSibling.textContent=Math.round(p.z*100)+'%'}
+  $('cnt').textContent=st.photos.length?'· '+st.photos.length+'장':'';
+  $('save').disabled=!st.photos.length;$('gifBtn').disabled=st.photos.length<2;
+}
+function seg(id,opts){const el=$(id);opts.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.dataset.v=v;
+  b.onclick=()=>{st[el.dataset.key]=v;if(id==='ratio')setRatio();sync();render()};el.append(b)})}
+seg('ratio',[['16:9','16:9 가로'],['1:1','1:1 정사각'],['4:5','4:5 세로'],['3:1','3:1 헤더']]);
+seg('layout',[['grid','그리드'],['hero','하나 크게'],['row','가로 한 줄'],['col','세로 한 줄']]);
+seg('fmt',[['jpg','JPG'],['png','PNG']]);
+BG.forEach(c=>{const b=document.createElement('button');b.className='sw';b.style.background=c;b.dataset.c=c;b.setAttribute('aria-label','배경색 '+c);
+  b.onclick=()=>{st.bg=c;sync();render()};$('sws').append(b)});
+const ci=document.createElement('input');ci.type='color';ci.value='#ffffff';ci.setAttribute('aria-label','직접 고른 배경색');
+ci.oninput=()=>{st.bg=ci.value;sync();render()};$('sws').append(ci);
+[['gap'],['rad'],['mar']].forEach(([k])=>{const el=$(k),o=el.nextElementSibling;el.value=st[k];o.textContent=st[k];
+  el.oninput=()=>{st[k]=+el.value;o.textContent=el.value;render()}});
+$('foot').onchange=e=>{st.foot=e.target.checked;render()};
+$('title').oninput=e=>{st.title=e.target.value;render()};
+$('credit').oninput=e=>{st.credit=e.target.value;render()};
+$('zoom').oninput=e=>{const p=st.photos[st.sel];if(!p)return;p.z=e.target.value/100;e.target.nextElementSibling.textContent=e.target.value+'%';render()};
+$('prev').onclick=()=>{const i=st.sel,a=st.photos;[a[i-1],a[i]]=[a[i],a[i-1]];st.sel--;sync();render()};
+$('next').onclick=()=>{const i=st.sel,a=st.photos;[a[i+1],a[i]]=[a[i],a[i+1]];st.sel++;sync();render()};
+$('del').onclick=()=>{st.photos.splice(st.sel,1);st.sel=-1;sync();render()};
+
+/* 사진 불러오기 */
+function add(files){
+  files=[...files].filter(f=>f.type.startsWith('image/')).slice(0,9-st.photos.length);
+  files.forEach(f=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
+    const k=Math.min(1,2400/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');
+    c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    st.photos.push({img:c,w:c.width,h:c.height,z:1,ox:0,oy:0});sync();render()};im.src=r.result};r.readAsDataURL(f)});
+}
+$('file').onchange=e=>{add(e.target.files);e.target.value=''};
+$('addBtn').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}};
+$('stage').ondragover=e=>e.preventDefault();
+$('stage').ondrop=e=>{e.preventDefault();add(e.dataTransfer.files)};
+
+/* 사진 조작 */
+let g=null;
+const pt=e=>{const b=cv.getBoundingClientRect();return[(e.clientX-b.left)*cv.width/b.width,(e.clientY-b.top)*cv.height/b.height]};
+const at=(x,y)=>st.cells.findIndex(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);
+cv.onpointerdown=e=>{
+  if(!st.photos.length){$('file').click();return}
+  const [x,y]=pt(e),i=at(x,y);st.sel=i;sync();render();if(i<0)return;
+  cv.setPointerCapture(e.pointerId);const p=st.photos[i];g={i,x,y,ox:p.ox,oy:p.oy};
+};
+cv.onpointermove=e=>{
+  if(!g)return;const [x,y]=pt(e),p=st.photos[g.i],r=st.cells[g.i],{dw,dh}=cover(p,r),vx=(dw-r.w)/2,vy=(dh-r.h)/2;
+  p.ox=vx>0?clamp(g.ox+(x-g.x)/vx,-1,1):0;p.oy=vy>0?clamp(g.oy+(y-g.y)/vy,-1,1):0;render();
+};
+cv.onpointerup=cv.onpointercancel=()=>{g=null};
+cv.addEventListener('wheel',e=>{
+  const [x,y]=pt(e),i=at(x,y);if(i<0)return;e.preventDefault();
+  const p=st.photos[i];p.z=clamp(p.z*(e.deltaY<0?1.08:.93),1,4);st.sel=i;sync();render();
+},{passive:false});
+
+/* 저장 */
+let lastUrl=null;
+function saveBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();return u}
+function showPreview(u){if(lastUrl)URL.revokeObjectURL(lastUrl);lastUrl=u;$('outimg').src=u;$('fallback').style.display='block'}
+$('save').onclick=async()=>{
+  const msg=$('msg');msg.textContent='이미지를 만드는 중…';$('fallback').style.display='none';
+  try{await document.fonts.load("700 20px 'IBM Plex Sans KR'")}catch(e){}
+  const out=document.createElement('canvas');out.width=cv.width;out.height=cv.height;
+  draw(out.getContext('2d'),out.width,out.height,false);
+  const png=st.fmt==='png',mime=png?'image/png':'image/jpeg';
+  const blob=await new Promise(r=>out.toBlob(r,mime,.95));
+  const u=saveBlob(blob,'collage.'+(png?'png':'jpg'));showPreview(u);msg.textContent='저장했어요!';
+};
+
+
+/* ---------- GIF ---------- */
+function quant(d){
+  const hist=new Uint32Array(32768);
+  for(let i=0;i<d.length;i+=4)hist[(d[i]>>3)<<10|(d[i+1]>>3)<<5|(d[i+2]>>3)]++;
+  const all=[];for(let b=0;b<32768;b++)if(hist[b])all.push(b);
+  const ch=(b,k)=>k===0?b>>10:k===1?(b>>5)&31:b&31;
+  const boxes=[all];
+  while(boxes.length<256){
+    let bi=-1,bs=0;
+    boxes.forEach((bx,i)=>{if(bx.length>1){let t=0;for(const b of bx)t+=hist[b];if(t>bs){bs=t;bi=i}}});
+    if(bi<0)break;
+    const bx=boxes[bi];let best=0,br=-1;
+    for(let k=0;k<3;k++){let lo=31,hi=0;for(const b of bx){const v=ch(b,k);if(v<lo)lo=v;if(v>hi)hi=v}if(hi-lo>br){br=hi-lo;best=k}}
+    bx.sort((a,b)=>ch(a,best)-ch(b,best));
+    let tot=0;for(const b of bx)tot+=hist[b];
+    let acc=0,cut=0;while(cut<bx.length-1){acc+=hist[bx[cut]];cut++;if(acc>=tot/2)break}
+    boxes.splice(bi,1,bx.slice(0,cut),bx.slice(cut));
+  }
+  const pal=new Uint8Array(768),lut=new Uint8Array(32768);
+  boxes.forEach((bx,i)=>{let r=0,g=0,b2=0,t=0;
+    for(const b of bx){const c=hist[b];r+=(b>>10)*c;g+=((b>>5)&31)*c;b2+=(b&31)*c;t+=c;lut[b]=i}
+    pal[i*3]=Math.min(255,Math.round(r/t*8+4));pal[i*3+1]=Math.min(255,Math.round(g/t*8+4));pal[i*3+2]=Math.min(255,Math.round(b2/t*8+4))});
+  const idx=new Uint8Array(d.length/4);
+  for(let i=0,j=0;i<d.length;i+=4,j++)idx[j]=lut[(d[i]>>3)<<10|(d[i+1]>>3)<<5|(d[i+2]>>3)];
+  return{pal,idx};
+}
+function lzw(idx,put){
+  const CL=256,EOI=257;let bits=9,next=258,dict=new Map(),cur=0,cb=0,blk=[];
+  const flush=()=>{if(blk.length){put(blk.length);for(const b of blk)put(b);blk=[]}};
+  const emit=c=>{cur|=c<<cb;cb+=bits;while(cb>=8){blk.push(cur&255);cur>>>=8;cb-=8;if(blk.length===255)flush()}};
+  emit(CL);let p=idx[0];
+  for(let i=1;i<idx.length;i++){
+    const k=idx[i],key=p*256+k,v=dict.get(key);
+    if(v!==undefined){p=v;continue}
+    emit(p);
+    if(next===4096){emit(CL);next=258;bits=9;dict=new Map()}
+    else{if(next>=(1<<bits))bits++;dict.set(key,next++)}
+    p=k;
+  }
+  emit(p);emit(EOI);if(cb>0)blk.push(cur&255);flush();put(0);
+}
+function gifEncode(frames,W,H){
+  let a=new Uint8Array(1<<20),n=0;
+  const put=b=>{if(n===a.length){const t=new Uint8Array(a.length*2);t.set(a);a=t}a[n++]=b};
+  const w16=v=>{put(v&255);put(v>>8&255)};
+  [...'GIF89a'].forEach(c=>put(c.charCodeAt(0)));w16(W);w16(H);put(0x70);put(0);put(0);
+  put(0x21);put(0xff);put(11);[...'NETSCAPE2.0'].forEach(c=>put(c.charCodeAt(0)));put(3);put(1);w16(0);put(0);
+  for(const f of frames){
+    const{pal,idx}=quant(f.data);
+    put(0x21);put(0xf9);put(4);put(4);w16(f.delay);put(0);put(0);
+    put(0x2c);w16(0);w16(0);w16(W);w16(H);put(0x87);
+    for(let i=0;i<768;i++)put(pal[i]);
+    put(8);lzw(idx,put);
+  }
+  put(0x3b);return a.slice(0,n);
+}
+st.gtype='slide';st.gsize='640';st.gdelay=1;st.gfinal=true;
+seg('gtype',[['slide','한 장씩 넘기기'],['build','차례로 채우기']]);
+seg('gsize',[['480','작게'],['640','보통'],['800','크게']]);
+$('gdelay').oninput=e=>{st.gdelay=e.target.value/10;e.target.nextElementSibling.textContent=st.gdelay.toFixed(1)+'초'};
+$('gfinal').onchange=e=>{st.gfinal=e.target.checked};
+$('gifBtn').onclick=async()=>{
+  const msg=$('msg2'),btn=$('gifBtn');btn.disabled=true;$('fallback').style.display='none';
+  try{await document.fonts.load("700 20px 'IBM Plex Sans KR'")}catch(e){}
+  const[rw,rh]=RAT[st.ratio],k=+st.gsize/Math.max(rw,rh),W=Math.round(rw*k),H=Math.round(rh*k),n=st.photos.length,plans=[];
+  if(st.gtype==='slide'){for(let i=0;i<n;i++)plans.push({o:{only:i},d:1});if(st.gfinal)plans.push({o:{},d:1.5})}
+  else for(let i=1;i<=n;i++)plans.push({o:{reveal:i},d:i===n?3:1});
+  const frames=[];
+  try{
+    for(let i=0;i<plans.length;i++){
+      msg.textContent='GIF 만드는 중… ('+(i+1)+'/'+plans.length+')';
+      await new Promise(r=>setTimeout(r,20));
+      const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+      draw(x,W,H,false,plans[i].o);
+      frames.push({data:x.getImageData(0,0,W,H).data,delay:Math.round(st.gdelay*100*plans[i].d)});
+    }
+    msg.textContent='GIF로 합치는 중…';await new Promise(r=>setTimeout(r,20));
+    const blob=new Blob([gifEncode(frames,W,H)],{type:'image/gif'}),mb=blob.size/1048576;
+    const warn=mb>15?' (15MB를 넘어요. 크기를 줄여 보세요)':'';
+    const u=saveBlob(blob,'collage.gif');showPreview(u);msg.textContent='저장했어요! '+mb.toFixed(1)+'MB'+warn;
+  }catch(e){msg.textContent='GIF를 만들지 못했어요. 크기를 줄여 다시 시도해 주세요.'}
+  btn.disabled=st.photos.length<2;
+};
+
+setRatio();sync();render();
+if(document.fonts)document.fonts.load("700 20px 'IBM Plex Sans KR'").then(render).catch(()=>{});
+</script>
+</body>
+</html>
