@@ -87,6 +87,8 @@ input[type=text]{width:100%;font:inherit;font-size:14px;color:var(--ink);backgro
       </div>
       <div class="sec"><h2>움짤 (GIF)</h2>
         <div class="seg" id="gtype" data-key="gtype" style="margin-bottom:10px"></div>
+        <p class="note" style="margin:0 0 6px">넘어가는 효과</p>
+        <div class="seg" id="geff" data-key="geff" style="margin-bottom:10px"></div>
         <div class="row" style="grid-template-columns:44px 1fr 44px"><span>간격</span><input id="gdelay" type="range" min="2" max="30" value="10"><output>1.0초</output></div>
         <div class="seg" id="gsize" data-key="gsize" style="margin-bottom:10px"></div>
         <p class="note" style="margin:0 0 6px">한 장씩 넘길 때 사진 맞춤</p>
@@ -299,8 +301,16 @@ function gifEncode(frames,W,H){
   }
   put(0x3b);return a.slice(0,n);
 }
-st.gtype='slide';st.gsize='640';st.gfit='contain';st.gdelay=1;st.gfinal=true;
+function trans(c,A,B,t,eff,W,H){
+  const e=t*t*(3-2*t);
+  if(eff==='slide'){c.drawImage(A,-e*W,0);c.drawImage(B,(1-e)*W,0)}
+  else if(eff==='wipe'){c.drawImage(A,0,0);c.save();c.beginPath();c.rect(0,0,W*e,H);c.clip();c.drawImage(B,0,0);c.restore()}
+  else if(eff==='zoom'){c.drawImage(A,0,0);c.save();c.globalAlpha=e;const k=1.12-.12*e;c.translate(W/2,H/2);c.scale(k,k);c.drawImage(B,-W/2,-H/2);c.restore()}
+  else{c.drawImage(A,0,0);c.globalAlpha=e;c.drawImage(B,0,0);c.globalAlpha=1}
+}
+st.gtype='slide';st.geff='fade';st.gsize='640';st.gfit='contain';st.gdelay=1;st.gfinal=true;
 seg('gtype',[['slide','한 장씩 넘기기'],['build','차례로 채우기']]);
+seg('geff',[['none','없음'],['fade','페이드'],['slide','밀기'],['wipe','와이프'],['zoom','줌']]);
 seg('gsize',[['480','작게'],['640','보통'],['800','크게']]);
 seg('gfit',[['contain','전체 보이게'],['cover','꽉 채우기']]);
 $('gdelay').oninput=e=>{st.gdelay=e.target.value/10;e.target.nextElementSibling.textContent=st.gdelay.toFixed(1)+'초'};
@@ -311,14 +321,21 @@ $('gifBtn').onclick=async()=>{
   const[rw,rh]=RAT[st.ratio],k=+st.gsize/Math.max(rw,rh),W=Math.round(rw*k),H=Math.round(rh*k),n=st.photos.length,plans=[];
   if(st.gtype==='slide'){for(let i=0;i<n;i++)plans.push({o:{only:i},d:1});if(st.gfinal)plans.push({o:{},d:1.5})}
   else for(let i=1;i<=n;i++)plans.push({o:{reveal:i},d:i===n?3:1});
-  const frames=[];
+  const frames=[],cvs=[],STEPS=st.geff==='none'?0:6;
   try{
     for(let i=0;i<plans.length;i++){
       msg.textContent='GIF 만드는 중… ('+(i+1)+'/'+plans.length+')';
       await new Promise(r=>setTimeout(r,20));
-      const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
-      draw(x,W,H,false,plans[i].o);
-      frames.push({data:x.getImageData(0,0,W,H).data,delay:Math.round(st.gdelay*100*plans[i].d)});
+      const c=document.createElement('canvas');c.width=W;c.height=H;
+      draw(c.getContext('2d'),W,H,false,plans[i].o);cvs.push(c);
+    }
+    for(let i=0;i<cvs.length;i++){
+      frames.push({data:cvs[i].getContext('2d').getImageData(0,0,W,H).data,delay:Math.round(st.gdelay*100*plans[i].d)});
+      if(STEPS&&i<cvs.length-1)for(let k=1;k<=STEPS;k++){
+        const t=document.createElement('canvas');t.width=W;t.height=H;const tx=t.getContext('2d');
+        trans(tx,cvs[i],cvs[i+1],k/(STEPS+1),st.geff,W,H);
+        frames.push({data:tx.getImageData(0,0,W,H).data,delay:4});
+      }
     }
     msg.textContent='GIF로 합치는 중…';await new Promise(r=>setTimeout(r,20));
     const blob=new Blob([gifEncode(frames,W,H)],{type:'image/gif'}),mb=blob.size/1048576;
